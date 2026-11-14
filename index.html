@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ピース平間とStarship</title>
+<style>
+  :root {
+    --ink: #1f2933;
+    --muted: #52606d;
+    --panel: rgba(255, 255, 255, 0.86);
+    --accent: #c2410c;
+    --line: #d9e2ec;
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: linear-gradient(180deg, #cfe3f3 0%, #eaf2f8 55%, #f6f8fa 100%);
+    color: var(--ink);
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  }
+  #stage { position: fixed; inset: 0; }
+  #labels { position: fixed; inset: 0; }
+  #panel {
+    position: fixed; top: 20px; left: 20px; max-width: 520px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px 14px; box-shadow: 0 6px 24px rgba(31, 41, 51, 0.10);
+    backdrop-filter: blur(4px); pointer-events: auto;
+  }
+  #panel h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: 0.02em; }
+  #panel .sub { font-size: 13px; color: var(--muted); margin: 0 0 14px; }
+  .spec { font-size: 14px; line-height: 1.65; margin: 0 0 12px; padding: 0; list-style: none; }
+  .spec li { display: flex; gap: 10px; }
+  .spec .swatch { flex: 0 0 12px; height: 12px; margin-top: 6px; border-radius: 3px; }
+  .ratios { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
+  .ratio { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+  .ratio .v { font-size: 26px; font-weight: 700; color: var(--accent); line-height: 1.1; }
+  .ratio .k { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .ratio .f { font-size: 11px; color: var(--muted); }
+  .note { font-size: 11px; line-height: 1.6; color: var(--muted); margin: 0; }
+  #controls { display: flex; gap: 8px; align-items: center; margin: 0 0 12px; flex-wrap: wrap; }
+  #controls button {
+    font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px;
+    border: 1px solid #9fb3c8; background: #fff; color: var(--ink); cursor: pointer;
+  }
+  #controls button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  #controls .hint { font-size: 12px; color: var(--muted); }
+  body.export #controls { display: none; }
+
+  .lbl > span {
+    display: inline-block; white-space: nowrap; font-size: 13px; line-height: 1.3;
+    padding: 2px 7px; border-radius: 6px; background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(31, 41, 51, 0.18); color: var(--ink);
+  }
+  .lbl.left > span { margin-right: 8px; }
+  .lbl.right > span { margin-left: 8px; }
+  .lbl.above > span { margin-bottom: 6px; }
+  .lbl.below > span { margin-top: 6px; }
+  .lbl.title > span { font-size: 17px; font-weight: 700; padding: 3px 10px; }
+  .lbl.ladder > span { font-size: 12px; padding: 1px 6px; color: var(--accent); border-color: rgba(194, 65, 12, 0.35); }
+  .lbl.big > span { font-size: 15px; font-weight: 700; color: #fff; background: var(--accent); border-color: var(--accent); }
+  .lbl.small > span { font-size: 11px; padding: 1px 5px; }
+
+  @media (max-width: 640px) {
+    #panel { left: 16px; right: 16px; top: 16px; max-width: none; padding: 12px 14px 10px; }
+    #panel h1 { font-size: 17px; }
+    .ratio .v { font-size: 20px; }
+    .note, .spec, #controls .hint { display: none; }
+    .ratio { padding: 6px 8px; }
+    .ratio .f { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="labels"></div>
+
+<div id="panel">
+  <h1>ピース平間と Starship の大きさ比較</h1>
+  <p class="sub">同じ縮尺で並べた模式図（単位 m）</p>
+  <div id="controls">
+    <button id="btn-front" type="button">正面で比較</button>
+    <button id="btn-3d" type="button">3Dで回す</button>
+    <span class="hint" id="hint"></span>
+  </div>
+  <ul class="spec">
+    <li><span class="swatch" style="background:#cdbfae"></span><span>ピース平間：幅 16.24（道路側）× 奥行 15.51 × 最高高さ 16.90、塔屋 約19.8</span></li>
+    <li><span class="swatch" style="background:#b8bec6"></span><span>Starship：直径 9 × 全高 約121（Super Heavy 約71＋Ship 約50）</span></li>
+  </ul>
+  <div class="ratios">
+    <div class="ratio"><div class="v">約7.2倍</div><div class="k">高さ</div><div class="f">121 ÷ 16.90</div></div>
+    <div class="ratio"><div class="v">約6.1倍</div><div class="k">塔屋の上端と比べて</div><div class="f">121 ÷ 19.8</div></div>
+    <div class="ratio"><div class="v">約0.55倍</div><div class="k">直径 ÷ 道路側の幅</div><div class="f">9 ÷ 16.24</div></div>
+  </div>
+  <p class="note">
+    ピース平間：確認申請図書の配置図・立面図（2020-11-04 軽微変更2）の読み。建物は最大側の寸法の箱で表し、配置図の台形（西側の辺 約11.3）、階高、塔屋の平面形は模式。塔屋の高さは基準面の違いで1階床から約19.7とする資料もある。<br>
+    Starship：公開資料による概数。全高は資料により121〜124（V3 は約124とする説明もある）。公式値は未確認。
+  </p>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+
+// ---- 寸法（m）。正本は README と図面。ここは描画用の値 ----
+const B = { w: 16.24, d: 15.51, h: 16.90, eave: 15.40, ph: 19.8, floors: 5 };
+const S = { r: 4.5, booster: 71, ship: 50, total: 121, nose: 18 };
+const GAP = 12;                                   // 建物の右端と Starship の左端の間
+const SX = B.w / 2 + GAP + S.r;                   // Starship の中心 x
+const LADDER_X = B.w / 2 + GAP - 2.5;             // 倍率のはしご
+const params = new URLSearchParams(location.search);
+if (params.get('export') === '1') document.body.classList.add('export');
+
+// ---- renderer ----
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+stage.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer({ element: document.getElementById('labels') });
+labelRenderer.setSize(innerWidth, innerHeight);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+// ---- lights ----
+scene.add(new THREE.HemisphereLight(0xeaf2ff, 0xb9a98f, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+sun.position.set(-70, 140, 160);
+sun.target.position.set(10, 40, 0);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -90, right: 90, top: 140, bottom: -60, near: 10, far: 500 });
+sun.shadow.bias = -0.0004;
+scene.add(sun, sun.target);
+
+// ---- ground（上面が y=0。正面図では断面として帯に見える）----
+const ground = new THREE.Mesh(
+  new THREE.BoxGeometry(700, 30, 700),
+  new THREE.MeshStandardMaterial({ color: 0xd8d2c4, roughness: 1 })
+);
+ground.position.y = -15;
+ground.receiveShadow = true;
+scene.add(ground);
+const grid = new THREE.GridHelper(300, 30, 0xa89f8c, 0xbfb7a6);
+grid.position.y = 0.02;
+grid.material.transparent = true; grid.material.opacity = 0.55;
+scene.add(grid);
+
+// ---- helpers ----
+const lineMats = [];
+function fatLine(pts, { color = 0x1f2933, width = 1.6, dashed = false, overlay = false } = {}) {
+  const g = new LineGeometry();
+  g.setPositions(pts.flatMap(p => [p.x, p.y, p.z]));
+  const m = new LineMaterial({ color, linewidth: width, dashed, dashSize: 1.2, gapSize: 0.9,
+                               depthTest: !overlay, transparent: overlay });
+  lineMats.push(m);
+  const l = new Line2(g, m);
+  if (dashed) l.computeLineDistances();
+  if (overlay) l.renderOrder = 10;
+  return l;
+}
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const CENTER = { left: [1, 0.5], right: [0, 0.5], above: [0.5, 1], below: [0.5, 0], mid: [0.5, 0.5] };
+function label(text, pos, side = 'mid', extra = '') {
+  const el = document.createElement('div');
+  el.className = `lbl ${side} ${extra}`;
+  const span = document.createElement('span');
+  span.textContent = text;
+  el.appendChild(span);
+  const o = new CSS2DObject(el);
+  o.position.copy(pos);
+  o.center.set(...CENTER[side]);
+  return o;
+}
+// 寸法線：a→b、端に tick 方向の短い線、ラベルは at（既定は中点）
+function dim(a, b, tick, text, { side = 'left', at = null, overlay = false, extra = '' } = {}) {
+  const g = new THREE.Group();
+  const t = tick.clone().normalize().multiplyScalar(0.9);
+  g.add(fatLine([a, b], { overlay }));
+  g.add(fatLine([a.clone().sub(t), a.clone().add(t)], { overlay }));
+  g.add(fatLine([b.clone().sub(t), b.clone().add(t)], { overlay }));
+  g.add(label(text, at ?? a.clone().add(b).multiplyScalar(0.5), side, extra));
+  return g;
+}
+function setVisible(obj, v) { obj.traverse(o => { o.visible = v; }); }
+
+// ---- ピース平間 ----
+const building = new THREE.Group();
+const concrete = new THREE.MeshStandardMaterial({ color: 0xcdbfae, roughness: 0.9 });
+const glass = new THREE.MeshStandardMaterial({ color: 0x4f6b7d, roughness: 0.15, metalness: 0.4 });
+const edgeMat = new THREE.LineBasicMaterial({ color: 0x5b5146 });
+function boxWithEdges(w, h, d, mat) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const m = new THREE.Mesh(geo, mat);
+  m.castShadow = m.receiveShadow = true;
+  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
+  return m;
+}
+const mass = boxWithEdges(B.w, B.h, B.d, concrete);
+mass.position.y = B.h / 2;
+building.add(mass);
+// 階ごとの窓の帯（道路側 = +z の面）。階高は模式（軒高を5等分）
+const fh = B.eave / B.floors;
+for (let i = 0; i < B.floors; i++) {
+  const tall = i === 0 ? 0.75 : 0.5;
+  const h = fh * tall;
+  const win = new THREE.Mesh(new THREE.BoxGeometry(B.w - 2.4, h, 0.12), glass);
+  win.position.set(0, i * fh + (fh - h) / 2 + (i === 0 ? 0.1 : 0.25), B.d / 2 + 0.03);
+  building.add(win);
+  if (i > 0) {
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(B.w + 0.08, 0.18, B.d + 0.08),
+      new THREE.MeshStandardMaterial({ color: 0xb3a592, roughness: 0.9 }));
+    slab.position.y = i * fh;
+    building.add(slab);
+  }
+}
+// 塔屋（平面形は模式）
+const ph = boxWithEdges(4.5, B.ph - B.h, 4.0, concrete);
+ph.position.set(3.0, B.h + (B.ph - B.h) / 2, -3.0);
+building.add(ph);
+scene.add(building);
+
+// 人（1.7 m）
+const person = new THREE.Group();
+const pmat = new THREE.MeshStandardMaterial({ color: 0x334e68, roughness: 0.6 });
+const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 1.4, 16), pmat);
+body.position.y = 0.7;
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), pmat);
+head.position.y = 1.56;
+person.add(body, head);
+person.traverse(o => { o.castShadow = true; });
+person.position.set(B.w / 2 + 2.5, 0, B.d / 2 + 1.5);
+scene.add(person);
+
+// ---- Starship ----
+const ship = new THREE.Group();
+const steel = new THREE.MeshStandardMaterial({ color: 0xc3c8ce, metalness: 0.85, roughness: 0.32 });
+const dark = new THREE.MeshStandardMaterial({ color: 0x22262b, metalness: 0.2, roughness: 0.7 });
+const tiles = new THREE.MeshStandardMaterial({ color: 0x1b1d20, metalness: 0.05, roughness: 0.85, side: THREE.DoubleSide });
+function cyl(r, h, y0, mat, open = false) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 72, 1, open), mat);
+  m.position.y = y0 + h / 2;
+  m.castShadow = m.receiveShadow = true;
+  return m;
+}
+// Super Heavy（1段目）
+ship.add(cyl(S.r, S.booster - 1.6, 0, steel));
+ship.add(cyl(S.r * 1.005, 1.6, 0, dark));                          // エンジン部
+ship.add(cyl(S.r * 1.01, 1.6, S.booster - 1.6, dark));             // ホットステージのリング
+for (let k = 0; k < 4; k++) {                                       // グリッドフィン
+  const a = Math.PI / 4 + k * Math.PI / 2;
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.4, 0.35), dark);
+  fin.position.set(Math.cos(a) * (S.r + 1.3), S.booster - 5, Math.sin(a) * (S.r + 1.3));
+  fin.rotation.y = -a;
+  fin.castShadow = true;
+  ship.add(fin);
+}
+// Ship（2段目）：円筒＋ノーズ。奥側（-z）の半周に耐熱タイル
+const y1 = S.booster, yNose = S.total - S.nose;
+ship.add(cyl(S.r, yNose - y1, y1, steel));
+const shield = new THREE.Mesh(
+  new THREE.CylinderGeometry(S.r * 1.006, S.r * 1.006, yNose - y1, 72, 1, true, Math.PI / 2, Math.PI), tiles);
+shield.position.y = y1 + (yNose - y1) / 2;
+ship.add(shield);
+const noseR = t => S.r * Math.pow(Math.max(0, 1 - Math.pow(t, 1.9)), 0.6);
+const prof = [];
+for (let i = 0; i <= 40; i++) { const t = i / 40; prof.push(new THREE.Vector2(noseR(t), yNose + t * S.nose)); }
+const nose = new THREE.Mesh(new THREE.LatheGeometry(prof, 72), steel);
+nose.castShadow = true;
+ship.add(nose);
+const noseShield = new THREE.Mesh(
+  new THREE.LatheGeometry(prof.map(p => new THREE.Vector2(p.x * 1.006, p.y)), 72, Math.PI / 2, Math.PI), tiles);
+ship.add(noseShield);
+// フラップ（左右 = ±x）
+function flap(len, h, y, r0) {
+  for (const s of [-1, 1]) {
+    const f = new THREE.Mesh(new THREE.BoxGeometry(len, h, 0.35), tiles);
+    f.position.set(s * (r0 + len / 2), y, 0);
+    f.castShadow = true;
+    ship.add(f);
+  }
+}
+flap(3.6, 9, y1 + 6.5, S.r);
+flap(2.6, 6, yNose + 4.5, noseR(4.5 / S.nose) - 0.2);
+ship.position.x = SX;
+scene.add(ship);
+
+// ---- 寸法・注記 ----
+const common = new THREE.Group();     // 両方の視点
+const frontOnly = new THREE.Group();  // 正面のみ（地面より下の幅の寸法など）
+const only3d = new THREE.Group();     // 3D のみ（地面上の幅・奥行）
+scene.add(common, frontOnly, only3d);
+
+const zf = B.d / 2;                   // 建物の道路側の面
+const xL = -B.w / 2 - 3;
+// 建物の高さ：0→16.90、16.90→塔屋の上端 を同じ線上に
+common.add(dim(V(xL, 0, zf), V(xL, B.h, zf), V(1, 0, 0), '最高高さ 16.90 m', { side: 'left' }));
+common.add(dim(V(xL, B.h, zf), V(xL, B.ph, zf), V(1, 0, 0), '塔屋の上端 約19.8 m', { side: 'left', at: V(xL, B.ph + 0.6, zf) }));
+// Starship の高さ：段ごと＋全高
+const xS1 = SX + S.r + 3, xS2 = SX + S.r + 18;
+common.add(dim(V(xS1, 0, 0), V(xS1, S.booster, 0), V(1, 0, 0), 'Super Heavy 約71 m', { side: 'right' }));
+common.add(dim(V(xS1, S.booster, 0), V(xS1, S.total, 0), V(1, 0, 0), 'Ship 約50 m', { side: 'right' }));
+common.add(dim(V(xS2, 0, 0), V(xS2, S.total, 0), V(1, 0, 0), '全高 約121 m', { side: 'right', extra: 'big' }));
+for (const y of [0, S.total]) common.add(fatLine([V(SX + S.r + 0.5, y, 0), V(xS2 + 0.9, y, 0)], { color: 0x7b8794, width: 1, dashed: true }));
+// 倍率のはしご：ピース平間の高さ ×1〜×7
+common.add(fatLine([V(LADDER_X, 0, 6), V(LADDER_X, 7 * B.h, 6)], { color: 0xc2410c, width: 2 }));
+for (let k = 1; k <= 7; k++) {
+  const y = k * B.h;
+  common.add(fatLine([V(LADDER_X - 1, y, 6), V(LADDER_X + 1.6, y, 6)], { color: 0xc2410c, width: 2 }));
+  common.add(label(`×${k}`, V(LADDER_X - 1.3, y, 6), 'left', 'ladder'));
+}
+common.add(label('×7.2 ＝ 121 m', V(LADDER_X - 1.3, S.total + 1.5, 6), 'left', 'ladder'));
+common.add(fatLine([V(B.w / 2, B.h, zf), V(LADDER_X, B.h, 6)], { color: 0xc2410c, width: 1.2, dashed: true }));
+// 名前
+common.add(label('ピース平間', V(0, B.ph + 4.5, 0), 'above', 'title'));
+common.add(label('Starship', V(SX, S.total + 3, 0), 'above', 'title'));
+common.add(label('人 1.7 m', V(person.position.x, 2.0, person.position.z), 'above', 'small'));
+
+// 正面のみ：幅（地面の下に描く）
+const yW = -4;
+frontOnly.add(dim(V(-B.w / 2, yW, 50), V(B.w / 2, yW, 50), V(0, 1, 0), '幅 16.24 m（道路側）', { side: 'below', at: V(0, yW - 1.1, 50), overlay: true }));
+frontOnly.add(dim(V(SX - S.r, yW, 50), V(SX + S.r, yW, 50), V(0, 1, 0), '直径 9 m（幅の約0.55倍）', { side: 'below', at: V(SX, yW - 1.1, 50), overlay: true }));
+// 正面のみ：10 m の目盛り（背面）
+const backGrid = new THREE.GridHelper(260, 26, 0x9fb3c8, 0x9fb3c8);
+backGrid.rotation.x = Math.PI / 2;
+backGrid.position.set(SX - 30, 130, -40);
+backGrid.material.transparent = true; backGrid.material.opacity = 0.35;
+frontOnly.add(backGrid);
+for (let y = 20; y <= 120; y += 20) frontOnly.add(label(`${y} m`, V(xS2 + 14, y, 0), 'right', 'small'));
+
+// 3D のみ：地面の上に幅・奥行・直径
+const gy = 0.06;
+only3d.add(dim(V(-B.w / 2, gy, zf + 3), V(B.w / 2, gy, zf + 3), V(0, 0, 1), '幅 16.24 m（道路側）', { side: 'below', at: V(0, gy, zf + 4.2) }));
+only3d.add(dim(V(xL, gy, -B.d / 2), V(xL, gy, B.d / 2), V(1, 0, 0), '奥行 15.51 m', { side: 'left', at: V(xL - 0.8, gy, 0) }));
+only3d.add(dim(V(SX - S.r, gy, S.r + 3), V(SX + S.r, gy, S.r + 3), V(0, 0, 1), '直径 9 m', { side: 'below', at: V(SX, gy, S.r + 4.2) }));
+
+// ---- cameras ----
+const persp = new THREE.PerspectiveCamera(34, innerWidth / innerHeight, 1, 3000);
+persp.position.set(-150, 85, 285);
+const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 2000);
+ortho.position.set(SX / 2, 60, 600);
+
+const ctlP = new OrbitControls(persp, labelRenderer.domElement);
+ctlP.target.set(16, 52, 0);
+ctlP.enableDamping = true;
+ctlP.maxPolarAngle = Math.PI / 2 - 0.02;
+const ctlO = new OrbitControls(ortho, labelRenderer.domElement);
+ctlO.enableRotate = false;
+ctlO.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+ctlO.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
+ctlO.screenSpacePanning = true;
+
+// 正面の枠：内容を右寄せし、左上を説明欄に空ける
+const FRAME = { xmin: -26, xmax: xS2 + 22, ymin: -10, ymax: S.total + 13 };
+function fitOrtho() {
+  const a = innerWidth / innerHeight;
+  const narrow = innerWidth <= 640;
+  let w, h, cx, cy;
+  if (!narrow) {
+    h = FRAME.ymax - FRAME.ymin; w = FRAME.xmax - FRAME.xmin;
+    if (w / h > a) h = w / a; else w = h * a;
+    cx = FRAME.xmax - w / 2; cy = FRAME.ymin + h / 2;
+  } else {
+    // 狭い画面：ラベルは画素で固定幅なので、物の範囲に左右 110px・下 50px を足し、上は説明欄の分を空ける
+    const core = { xmin: -12, xmax: xS2 + 1, ymin: -5, ymax: S.total + 8 };
+    w = (core.xmax - core.xmin) / (1 - 220 / innerWidth);
+    h = (core.ymax - core.ymin) / (1 - (50 + 300) / innerHeight);
+    if (w / h > a) h = w / a; else w = h * a;
+    const mpp = h / innerHeight;
+    cx = (core.xmin + core.xmax) / 2; cy = core.ymin - 50 * mpp + h / 2;
+  }
+  Object.assign(ortho, { left: -w / 2, right: w / 2, top: h / 2, bottom: -h / 2, zoom: 1 });
+  ortho.position.set(cx, cy, 600);
+  ctlO.target.set(cx, cy, 0);
+  ortho.updateProjectionMatrix();
+}
+
+let mode = params.get('view') === 'front' ? 'front' : '3d';
+const hint = document.getElementById('hint');
+function setMode(m) {
+  mode = m;
+  ctlP.enabled = m === '3d';
+  ctlO.enabled = m === 'front';
+  setVisible(frontOnly, m === 'front');
+  setVisible(only3d, m === '3d');
+  grid.visible = m === '3d';
+  document.getElementById('btn-front').classList.toggle('on', m === 'front');
+  document.getElementById('btn-3d').classList.toggle('on', m === '3d');
+  hint.textContent = m === '3d' ? 'ドラッグで回転・ホイールで拡大・右ドラッグで移動' : 'ドラッグで移動・ホイールで拡大';
+  if (m === 'front') fitOrtho();
+}
+document.getElementById('btn-front').onclick = () => setMode('front');
+document.getElementById('btn-3d').onclick = () => setMode('3d');
+
+function resize() {
+  renderer.setSize(innerWidth, innerHeight);
+  labelRenderer.setSize(innerWidth, innerHeight);
+  persp.aspect = innerWidth / innerHeight;
+  persp.updateProjectionMatrix();
+  fitOrtho();
+  for (const m of lineMats) m.resolution.set(innerWidth, innerHeight);
+}
+addEventListener('resize', resize);
+resize();
+setMode(mode);
+
+function tick() {
+  const cam = mode === '3d' ? persp : ortho;
+  (mode === '3d' ? ctlP : ctlO).update();
+  renderer.render(scene, cam);
+  labelRenderer.render(scene, cam);
+  requestAnimationFrame(tick);
+}
+tick();
+window.__ready = true;
+</script>
+</body>
+</html>
