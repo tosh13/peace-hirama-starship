@@ -53,7 +53,7 @@
   }
   .lbl.left > span { margin-right: 8px; }
   .lbl.right > span { margin-left: 8px; }
-  .lbl.above > span { margin-bottom: 6px; }
+  .lbl.above > span, .lbl.aboveLeft > span { margin-bottom: 6px; }
   .lbl.below > span { margin-top: 6px; }
   .lbl.title > span { font-size: 17px; font-weight: 700; padding: 3px 10px; }
   .lbl.ladder > span { font-size: 12px; padding: 1px 6px; color: var(--accent); border-color: rgba(194, 65, 12, 0.35); }
@@ -63,10 +63,20 @@
   @media (max-width: 640px) {
     #panel { left: 16px; right: 16px; top: 16px; max-width: none; padding: 12px 14px 10px; }
     #panel h1 { font-size: 17px; }
-    .ratio .v { font-size: 20px; }
+    .ratio .v { font-size: 18px; }
     .note, .spec, #controls .hint { display: none; }
     .ratio { padding: 6px 8px; }
     .ratio .f { display: none; }
+    .ratio .k { font-size: 11px; }
+    #panel .sub { display: none; }
+    #panel h1 { margin-bottom: 10px; }
+    #controls { margin-bottom: 10px; }
+    #controls button { padding: 4px 10px; }
+    .lbl > span { font-size: 11px; padding: 1px 5px; }
+    .lbl.title > span { font-size: 13px; padding: 2px 7px; }
+    .lbl.big > span { font-size: 12px; }
+    .lbl.ladder > span { font-size: 10px; padding: 0 4px; }
+    .lbl.ruler > span, .lbl.person > span, .lbl.x7 > span { display: none; }
   }
 </style>
 </head>
@@ -88,8 +98,8 @@
   </ul>
   <div class="ratios">
     <div class="ratio"><div class="v">約7.2倍</div><div class="k">高さ</div><div class="f">121 ÷ 16.90</div></div>
-    <div class="ratio"><div class="v">約6.1倍</div><div class="k">塔屋の上端と比べて</div><div class="f">121 ÷ 19.8</div></div>
-    <div class="ratio"><div class="v">約0.55倍</div><div class="k">直径 ÷ 道路側の幅</div><div class="f">9 ÷ 16.24</div></div>
+    <div class="ratio"><div class="v">約6.1倍</div><div class="k">塔屋の上端まで</div><div class="f">121 ÷ 19.8</div></div>
+    <div class="ratio"><div class="v">約0.55倍</div><div class="k">直径 ÷ 幅</div><div class="f">9 ÷ 16.24</div></div>
   </div>
   <p class="note">
     ピース平間：確認申請図書の配置図・立面図（2020-11-04 軽微変更2）の読み。建物は最大側の寸法の箱で表し、配置図の台形（西側の辺 約11.3）、階高、塔屋の平面形は模式。塔屋の高さは基準面の違いで1階床から約19.7とする資料もある。<br>
@@ -115,7 +125,8 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 // ---- 寸法（m）。正本は README と図面。ここは描画用の値 ----
 const B = { w: 16.24, d: 15.51, h: 16.90, eave: 15.40, ph: 19.8, floors: 5 };
 const S = { r: 4.5, booster: 71, ship: 50, total: 121, nose: 18 };
-const GAP = 12;                                   // 建物の右端と Starship の左端の間
+const NARROW0 = innerWidth <= 640;               // 読み込み時の画面幅（スマホではラベルが相対的に大きいので間隔を広げる）
+const GAP = NARROW0 ? 20 : 12;                    // 建物の右端と Starship の左端の間（寸法ではなく見やすさのための間隔）
 const SX = B.w / 2 + GAP + S.r;                   // Starship の中心 x
 const LADDER_X = B.w / 2 + GAP - 2.5;             // 倍率のはしご
 const params = new URLSearchParams(location.search);
@@ -177,7 +188,7 @@ function fatLine(pts, { color = 0x1f2933, width = 1.6, dashed = false, overlay =
   return l;
 }
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const CENTER = { left: [1, 0.5], right: [0, 0.5], above: [0.5, 1], below: [0.5, 0], mid: [0.5, 0.5] };
+const CENTER = { left: [1, 0.5], right: [0, 0.5], above: [0.5, 1], aboveLeft: [1, 1], below: [0.5, 0], mid: [0.5, 0.5] };
 function label(text, pos, side = 'mid', extra = '') {
   const el = document.createElement('div');
   el.className = `lbl ${side} ${extra}`;
@@ -324,34 +335,38 @@ common.add(fatLine([V(LADDER_X, 0, 6), V(LADDER_X, 7 * B.h, 6)], { color: 0xc241
 for (let k = 1; k <= 7; k++) {
   const y = k * B.h;
   common.add(fatLine([V(LADDER_X - 1, y, 6), V(LADDER_X + 1.6, y, 6)], { color: 0xc2410c, width: 2 }));
-  common.add(label(`×${k}`, V(LADDER_X - 1.3, y, 6), 'left', 'ladder'));
+  common.add(label(`×${k}`, V(LADDER_X - 1.3, y, 6), 'left', k === 7 ? 'ladder x7' : 'ladder'));
 }
 common.add(label('×7.2 ＝ 121 m', V(LADDER_X - 1.3, S.total + 1.5, 6), 'left', 'ladder'));
 common.add(fatLine([V(B.w / 2, B.h, zf), V(LADDER_X, B.h, 6)], { color: 0xc2410c, width: 1.2, dashed: true }));
 // 名前
-common.add(label('ピース平間', V(0, B.ph + 4.5, 0), 'above', 'title'));
+common.add(NARROW0 ? label('ピース平間', V(B.w / 2, B.ph + 3, 0), 'aboveLeft', 'title')   // スマホでははしごの目盛りと重ならないよう右端を建物の右端に揃える
+                   : label('ピース平間', V(0, B.ph + 4.5, 0), 'above', 'title'));
 common.add(label('Starship', V(SX, S.total + 3, 0), 'above', 'title'));
-common.add(label('人 1.7 m', V(person.position.x, 2.0, person.position.z), 'above', 'small'));
+common.add(label('人 1.7 m', V(person.position.x, 2.0, person.position.z), 'above', 'small person'));
 
 // 正面のみ：幅（地面の下に描く）
 const yW = -4;
-frontOnly.add(dim(V(-B.w / 2, yW, 50), V(B.w / 2, yW, 50), V(0, 1, 0), '幅 16.24 m（道路側）', { side: 'below', at: V(0, yW - 1.1, 50), overlay: true }));
-frontOnly.add(dim(V(SX - S.r, yW, 50), V(SX + S.r, yW, 50), V(0, 1, 0), '直径 9 m（幅の約0.55倍）', { side: 'below', at: V(SX, yW - 1.1, 50), overlay: true }));
+frontOnly.add(dim(V(-B.w / 2, yW, 50), V(B.w / 2, yW, 50), V(0, 1, 0), NARROW0 ? '幅 16.24 m' : '幅 16.24 m（道路側）', { side: 'below', at: V(0, yW - 1.1, 50), overlay: true }));
+frontOnly.add(dim(V(SX - S.r, yW, 50), V(SX + S.r, yW, 50), V(0, 1, 0), NARROW0 ? '直径 9 m' : '直径 9 m（幅の約0.55倍）', { side: 'below', at: V(SX, yW - 1.1, 50), overlay: true }));
 // 正面のみ：10 m の目盛り（背面）
 const backGrid = new THREE.GridHelper(260, 26, 0x9fb3c8, 0x9fb3c8);
 backGrid.rotation.x = Math.PI / 2;
 backGrid.position.set(SX - 30, 130, -40);
 backGrid.material.transparent = true; backGrid.material.opacity = 0.35;
 frontOnly.add(backGrid);
-for (let y = 20; y <= 120; y += 20) frontOnly.add(label(`${y} m`, V(xS2 + 14, y, 0), 'right', 'small'));
+for (let y = 20; y <= 120; y += 20) frontOnly.add(label(`${y} m`, V(xS2 + 14, y, 0), 'right', 'small ruler'));
 
 // 3D のみ：地面の上に幅・奥行・直径
 const gy = 0.06;
-only3d.add(dim(V(-B.w / 2, gy, zf + 3), V(B.w / 2, gy, zf + 3), V(0, 0, 1), '幅 16.24 m（道路側）', { side: 'below', at: V(0, gy, zf + 4.2) }));
+only3d.add(dim(V(-B.w / 2, gy, zf + 3), V(B.w / 2, gy, zf + 3), V(0, 0, 1), NARROW0 ? '幅 16.24 m' : '幅 16.24 m（道路側）', { side: 'below', at: V(0, gy, zf + 4.2) }));
 only3d.add(dim(V(xL, gy, -B.d / 2), V(xL, gy, B.d / 2), V(1, 0, 0), '奥行 15.51 m', { side: 'left', at: V(xL - 0.8, gy, 0) }));
 only3d.add(dim(V(SX - S.r, gy, S.r + 3), V(SX + S.r, gy, S.r + 3), V(0, 0, 1), '直径 9 m', { side: 'below', at: V(SX, gy, S.r + 4.2) }));
 
 // ---- cameras ----
+const NARROW = () => innerWidth <= 640;
+// 狭い画面では説明欄が上を覆うので、その下の領域だけを描画の枠として扱う
+const topInset = () => NARROW() ? document.getElementById('panel').getBoundingClientRect().bottom + 8 : 0;
 const persp = new THREE.PerspectiveCamera(34, innerWidth / innerHeight, 1, 3000);
 persp.position.set(-150, 85, 285);
 const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 2000);
@@ -359,6 +374,10 @@ ortho.position.set(SX / 2, 60, 600);
 
 const ctlP = new OrbitControls(persp, labelRenderer.domElement);
 ctlP.target.set(16, 52, 0);
+if (NARROW()) {                       // 正面寄り・遠めにして、はしごが建物に重ならないようにする
+  persp.position.set(-60, 50, 330);
+  ctlP.target.set(18, 46, 0);
+}
 ctlP.enableDamping = true;
 ctlP.maxPolarAngle = Math.PI / 2 - 0.02;
 const ctlO = new OrbitControls(ortho, labelRenderer.domElement);
@@ -371,20 +390,21 @@ ctlO.screenSpacePanning = true;
 const FRAME = { xmin: -26, xmax: xS2 + 22, ymin: -10, ymax: S.total + 13 };
 function fitOrtho() {
   const a = innerWidth / innerHeight;
-  const narrow = innerWidth <= 640;
+  const narrow = NARROW();
   let w, h, cx, cy;
   if (!narrow) {
     h = FRAME.ymax - FRAME.ymin; w = FRAME.xmax - FRAME.xmin;
     if (w / h > a) h = w / a; else w = h * a;
     cx = FRAME.xmax - w / 2; cy = FRAME.ymin + h / 2;
   } else {
-    // 狭い画面：ラベルは画素で固定幅なので、物の範囲に左右 110px・下 50px を足し、上は説明欄の分を空ける
+    // 狭い画面：ラベルは画素で固定幅なので、物の範囲に左 125px・右 95px・下 45px を足し、上は説明欄の分を空ける
     const core = { xmin: -12, xmax: xS2 + 1, ymin: -5, ymax: S.total + 8 };
-    w = (core.xmax - core.xmin) / (1 - 220 / innerWidth);
-    h = (core.ymax - core.ymin) / (1 - (50 + 300) / innerHeight);
+    const PL = 135, PR = 110, PB = 45;
+    w = (core.xmax - core.xmin) / (1 - (PL + PR) / innerWidth);
+    h = (core.ymax - core.ymin) / (1 - (PB + topInset()) / innerHeight);
     if (w / h > a) h = w / a; else w = h * a;
     const mpp = h / innerHeight;
-    cx = (core.xmin + core.xmax) / 2; cy = core.ymin - 50 * mpp + h / 2;
+    cx = (core.xmin - PL * mpp + core.xmax + PR * mpp) / 2; cy = core.ymin - PB * mpp + h / 2;
   }
   Object.assign(ortho, { left: -w / 2, right: w / 2, top: h / 2, bottom: -h / 2, zoom: 1 });
   ortho.position.set(cx, cy, 600);
@@ -392,7 +412,8 @@ function fitOrtho() {
   ortho.updateProjectionMatrix();
 }
 
-let mode = params.get('view') === 'front' ? 'front' : '3d';
+// 既定はパソコンでは3D、スマホでは正面（ラベルが重なりにくい）
+let mode = params.get('view') === 'front' ? 'front' : params.get('view') === '3d' ? '3d' : (NARROW0 ? 'front' : '3d');
 const hint = document.getElementById('hint');
 function setMode(m) {
   mode = m;
@@ -412,7 +433,10 @@ document.getElementById('btn-3d').onclick = () => setMode('3d');
 function resize() {
   renderer.setSize(innerWidth, innerHeight);
   labelRenderer.setSize(innerWidth, innerHeight);
-  persp.aspect = innerWidth / innerHeight;
+  const top = topInset(), hv = innerHeight - top;
+  persp.aspect = innerWidth / hv;
+  if (top > 0) persp.setViewOffset(innerWidth, hv, 0, -top, innerWidth, innerHeight);
+  else persp.clearViewOffset();
   persp.updateProjectionMatrix();
   fitOrtho();
   for (const m of lineMats) m.resolution.set(innerWidth, innerHeight);
