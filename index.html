@@ -101,7 +101,7 @@
     <div class="ratio"><div class="v">約0.55倍</div><div class="k">直径 ÷ 幅</div><div class="f">9 ÷ 16.24</div></div>
   </div>
   <p class="note">
-    ピース平間：確認申請図書の配置図・立面図（2020-11-04 軽微変更2）の読み。建物は最大側の寸法の箱で表し、配置図の台形（西側の辺 約11.3）、階高、塔屋の平面形は模式。塔屋の高さは基準面の違いで1階床から約19.7とする資料もある。<br>
+    ピース平間：確認申請図書の配置図・平面図・立面図（2020-11-04 軽微変更2）と竣工写真から外観を大まかに起こした。窓・手すり・階段の細部、塔屋の平面形、仕上げの色は近似。塔屋の高さは基準面の違いで1階床から約19.7とする資料もある。<br>
     Starship：公開資料による概数。全高は資料により121〜124（V3 は約124とする説明もある）。公式値は未確認。
   </p>
 </div>
@@ -212,39 +212,384 @@ function dim(a, b, tick, text, { side = 'left', at = null, overlay = false, extr
 function setVisible(obj, v) { obj.traverse(o => { o.visible = v; }); }
 
 // ---- ピース平間 ----
+// 形の出所：確認申請図書（2020-11-04 軽微変更2）の配置図・各階平面図・立面図4面と竣工写真。
+// 平面の座標は図面の通り芯に合わせ、px＝X1 からの距離（道路側の面に沿って右へ）、py＝Y1 からの距離（奥へ）。
+// 高さは設計GL からの値（1FL は GL−0.15 だが 0 に丸めた）。窓・手すり・階段の細部と仕上げの色は近似。
 const building = new THREE.Group();
-const concrete = new THREE.MeshStandardMaterial({ color: 0xcdbfae, roughness: 0.9 });
-const glass = new THREE.MeshStandardMaterial({ color: 0x4f6b7d, roughness: 0.15, metalness: 0.4 });
-const edgeMat = new THREE.LineBasicMaterial({ color: 0x5b5146 });
-function boxWithEdges(w, h, d, mat) {
-  const geo = new THREE.BoxGeometry(w, h, d);
-  const m = new THREE.Mesh(geo, mat);
-  m.castShadow = m.receiveShadow = true;
-  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
+const X0 = -B.w / 2, ZF = B.d / 2;
+const FL = { f2: 3.10, f3: 6.30, f4: 9.70, f5: 12.60, r: 15.50 };   // 2FL〜RFL（GL 基準）
+const TAN = Math.tan(Math.atan2(15.507 - 11.307, 16.24));             // 隣地側の斜めの外壁（X1 で Y6、X5 で Y7）
+const backY = px => 11.307 + px * TAN;
+const sx = px => X0 + px, sz = py => ZF - py;
+
+function canvasTex(w, h, draw, rep = [1, 1]) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.repeat.set(1 / rep[0], 1 / rep[1]);
+  t.anisotropy = 8;
+  return t;
+}
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+// タイル（いも目地）：1.2 m 角に 5×17 枚
+const tileTex = canvasTex(512, 512, (g, w, h) => {
+  g.fillStyle = '#d6d0c4'; g.fillRect(0, 0, w, h);
+  const cw = w / 5, ch = h / 17;
+  for (let r = 0; r < 17; r++) for (let c = 0; c < 5; c++) {
+    const k = rnd() * 34 - 17, y = rnd() * 10;
+    g.fillStyle = `rgb(${188 + k},${160 + k + y * 0.4},${108 + k * 0.6})`;
+    g.fillRect(c * cw + 2, r * ch + 2, cw - 4, ch - 4);
+  }
+}, [1.2, 1.2]);
+// コンクリート打放し：型枠 1.8×0.9 m、セパ穴6つ
+const concTex = canvasTex(512, 256, (g, w, h) => {
+  g.fillStyle = '#a7a8a4'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 2500; i++) { g.fillStyle = `rgba(${rnd() < 0.5 ? '90,90,88' : '255,255,255'},${rnd() * 0.08})`; g.fillRect(rnd() * w, rnd() * h, 3, 3); }
+  g.strokeStyle = 'rgba(120,120,116,0.5)'; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
+  g.fillStyle = 'rgba(95,95,92,0.75)';
+  for (const fx of [1 / 12, 0.5, 11 / 12]) for (const fy of [1 / 6, 5 / 6]) { g.beginPath(); g.arc(fx * w, fy * h, 4, 0, 7); g.fill(); }
+}, [1.8, 0.9]);
+const shutterTex = canvasTex(64, 128, (g, w, h) => {
+  g.fillStyle = '#a2a6aa'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#7d8186'; for (let y = 0; y < h; y += 13) g.fillRect(0, y, w, 3);
+}, [0.5, 1]);
+// 太陽光パネル1枚 約1.0×1.6 m
+const solarTex = canvasTex(160, 256, (g, w, h) => {
+  g.fillStyle = '#c9ccd0'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#1e2f4d'; g.fillRect(4, 4, w - 8, h - 8);
+  g.strokeStyle = '#3d5683'; g.lineWidth = 1.5;
+  for (let i = 1; i < 6; i++) { g.beginPath(); g.moveTo(4 + i * (w - 8) / 6, 4); g.lineTo(4 + i * (w - 8) / 6, h - 4); g.stroke(); }
+  for (let i = 1; i < 10; i++) { g.beginPath(); g.moveTo(4, 4 + i * (h - 8) / 10); g.lineTo(w - 4, 4 + i * (h - 8) / 10); g.stroke(); }
+}, [1.0, 0.915]);
+// 手すり：u は長さ 0.6 m ごと、v は高さ全体。wavy は屋外階段・バルコニーの曲げ加工の縦格子
+function railTex(wavy) {
+  return canvasTex(192, 256, (g, w, h) => {
+    g.strokeStyle = g.fillStyle = '#1c1d1f';
+    g.fillRect(0, 0, w, 12); g.fillRect(0, h - 14, w, 8);
+    g.lineWidth = wavy ? 5 : 4;
+    const n = wavy ? 6 : 5;
+    for (let i = 0; i < n; i++) {
+      const x0 = (i + 0.5) * w / n;
+      g.beginPath();
+      for (let y = 10; y <= h - 8; y += 4) {
+        const x = wavy ? x0 + 9 * Math.sin((y / h) * Math.PI * 3 + i * 0.6) : x0;
+        y === 10 ? g.moveTo(x, y) : g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+  });
+}
+const mat = {
+  white: new THREE.MeshStandardMaterial({ color: 0xf2efe9, roughness: 0.85 }),
+  conc: new THREE.MeshStandardMaterial({ map: concTex, roughness: 0.85 }),
+  concPlain: new THREE.MeshStandardMaterial({ color: 0xa2a3a0, roughness: 0.85 }),
+  step: new THREE.MeshStandardMaterial({ color: 0xcfc8b8, roughness: 0.8 }),
+  tile: new THREE.MeshStandardMaterial({ map: tileTex, roughness: 0.85 }),
+  roof: new THREE.MeshStandardMaterial({ color: 0x9a9b97, roughness: 0.9 }),
+  metal: new THREE.MeshStandardMaterial({ color: 0x55595e, roughness: 0.55, metalness: 0.4, side: THREE.DoubleSide }),
+  solar: new THREE.MeshStandardMaterial({ map: solarTex, roughness: 0.3, metalness: 0.3 }),
+  glass: new THREE.MeshStandardMaterial({ color: 0x2f4352, roughness: 0.12, metalness: 0.55 }),
+  wood: new THREE.MeshStandardMaterial({ color: 0x9c6a3c, roughness: 0.7 }),
+  alu: new THREE.MeshStandardMaterial({ color: 0x2c3034, roughness: 0.5, metalness: 0.5 }),
+  shutter: new THREE.MeshStandardMaterial({ map: shutterTex, roughness: 0.6, metalness: 0.3 }),
+  railW: new THREE.MeshStandardMaterial({ map: railTex(true), transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: 0.6 }),
+  railS: new THREE.MeshStandardMaterial({ map: railTex(false), transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: 0.6 }),
+};
+const edgeMat = new THREE.LineBasicMaterial({ color: 0x6f6a61, transparent: true, opacity: 0.55 });
+function add(m, shadow = true) { if (shadow) m.castShadow = m.receiveShadow = true; building.add(m); return m; }
+
+// 平面の多角形を y0〜y1 に押し出す（UV はメートル単位）
+function prism(poly, y0, y1, material, edges = true) {
+  const sh = new THREE.Shape(poly.map(([px, py]) => new THREE.Vector2(sx(px), py - ZF)));
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: y1 - y0, bevelEnabled: false });
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, y0, 0);
+  const m = add(new THREE.Mesh(geo, material));
+  if (edges) m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), edgeMat));
   return m;
 }
-const mass = boxWithEdges(B.w, B.h, B.d, concrete);
-mass.position.y = B.h / 2;
-building.add(mass);
-// 階ごとの窓の帯（道路側 = +z の面）。階高は模式（軒高を5等分）
-const fh = B.eave / B.floors;
-for (let i = 0; i < B.floors; i++) {
-  const tall = i === 0 ? 0.75 : 0.5;
-  const h = fh * tall;
-  const win = new THREE.Mesh(new THREE.BoxGeometry(B.w - 2.4, h, 0.12), glass);
-  win.position.set(0, i * fh + (fh - h) / 2 + (i === 0 ? 0.1 : 0.25), B.d / 2 + 0.03);
-  building.add(win);
-  if (i > 0) {
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(B.w + 0.08, 0.18, B.d + 0.08),
-      new THREE.MeshStandardMaterial({ color: 0xb3a592, roughness: 0.9 }));
-    slab.position.y = i * fh;
-    building.add(slab);
+function boxP(px0, px1, py0, py1, y0, y1, material) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(px1 - px0, y1 - y0, py1 - py0), material);
+  m.position.set(sx((px0 + px1) / 2), (y0 + y1) / 2, sz((py0 + py1) / 2));
+  return add(m);
+}
+// 帯状の面：下の点列と上の点列（どちらも [x,y,z] の場面座標）
+function strip(bot, top, material, tileLen = 0.6) {
+  const pos = [], uv = [], idx = [];
+  let s = 0;
+  bot.forEach((p, i) => {
+    if (i > 0) s += Math.hypot(p[0] - bot[i - 1][0], p[1] - bot[i - 1][1], p[2] - bot[i - 1][2]);
+    pos.push(...p, ...top[i]);
+    uv.push(s / tileLen, 0, s / tileLen, 1);
+    if (i > 0) { const a = 2 * (i - 1); idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, material);
+  building.add(m);
+  return m;
+}
+const rail = (pts, h, material = mat.railW) => strip(pts, pts.map(([x, y, z]) => [x, y + h, z]), material);
+
+// 外壁の面に貼る：face は E（道路側、u＝px、面の位置は py＝d）、N（右、u＝py）、S（左、u＝py）
+function place(o, face, u, h, d = 0) {
+  if (face === 'E') o.position.set(sx(u), h, sz(d));
+  else if (face === 'N') { o.position.set(X0 + B.w, h, sz(u)); o.rotation.y = Math.PI / 2; }
+  else { o.position.set(X0, h, sz(u)); o.rotation.y = -Math.PI / 2; }
+  return o;
+}
+function panel(face, u0, u1, h0, h1, material, d = 0, off = 0.02) {
+  const w = u1 - u0, h = h1 - h0;
+  const geo = new THREE.PlaneGeometry(w, h);
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * w, h0 + uv.getY(i) * h);
+  geo.translate(0, 0, off);
+  const m = new THREE.Mesh(geo, material);
+  m.receiveShadow = true;
+  building.add(place(m, face, (u0 + u1) / 2, (h0 + h1) / 2, d));
+  return m;
+}
+// 窓：wood は上階の木製サッシ＋窓台、alu は下階のアルミサッシ
+function win(face, u0, u1, h0, h1, { d = 0, kind = 'wood', cols = 1, rows = 1 } = {}) {
+  const g = new THREE.Group();
+  const w = u1 - u0, h = h1 - h0, fw = kind === 'wood' ? 0.09 : 0.06;
+  const fr = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.08), kind === 'wood' ? mat.wood : mat.alu);
+  fr.position.z = 0.02;
+  const gl = new THREE.Mesh(new THREE.BoxGeometry(w - 2 * fw, h - 2 * fw, 0.08), mat.glass);
+  gl.position.z = 0.03;
+  g.add(fr, gl);
+  const bar = (bw, bh, x, y) => { const b = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, 0.05), fr.material); b.position.set(x, y, 0.08); g.add(b); };
+  for (let i = 1; i < cols; i++) bar(fw, h, -w / 2 + i * w / cols, 0);
+  for (let i = 1; i < rows; i++) bar(w, fw, 0, -h / 2 + i * h / rows);
+  if (kind === 'wood') {                                    // 窓台（コンクリート）
+    const s = new THREE.Mesh(new THREE.BoxGeometry(w + 0.24, 0.14, 0.3), mat.concPlain);
+    s.position.set(0, -h / 2 - 0.07, 0.13);
+    s.castShadow = true;
+    g.add(s);
+  }
+  building.add(place(g, face, (u0 + u1) / 2, (h0 + h1) / 2, d));
+}
+
+// 外形（px, py）
+const LOW = [[0, 1.3], [16.24, 1.3], [16.24, 12.9], [12.0, 12.9], [12.0, backY(12.0)], [0, 11.307]];          // 1〜2F
+const LOW3 = [[0, 4.1], [5.8, 4.1], [5.8, 1.3], ...LOW.slice(1)];                                                // 3F（X1〜X2 は Y3 まで後退、手前はテラス）
+const UP = [[0, 4.1], [5.8, 4.1], [5.8, 1.3], [16.24, 1.3], [16.24, 15.507], [0, 11.307]];                   // 4〜5F
+const RIGHT = [[5.8, 1.3], [16.24, 1.3], [16.24, 15.507], [5.8, backY(5.8)]];                                 // 陸屋根の部分
+const WING = [[0, 4.1], [5.8, 4.1], [5.8, backY(5.8)], [0, 11.307]];                                         // 勾配屋根の部分
+
+prism(LOW, 0, FL.f3, mat.conc);
+prism(LOW3, FL.f3, FL.f4, mat.conc);
+prism(UP, FL.f4, FL.r, mat.white);
+prism(RIGHT, FL.r, FL.r + 0.02, mat.roof, false);
+
+// パラペットと屋上の手すり（最高高さ 16.90 m）
+function insetPoly(poly, t) {
+  const n = poly.length, lines = [];
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = poly[i], [x2, y2] = poly[(i + 1) % n];
+    const L = Math.hypot(x2 - x1, y2 - y1), nx = -(y2 - y1) / L, ny = (x2 - x1) / L;
+    lines.push([x1 + nx * t, y1 + ny * t, x2 - x1, y2 - y1]);
+  }
+  return lines.map((a, i) => {
+    const b = lines[(i + n - 1) % n];
+    const det = a[2] * b[3] - a[3] * b[2];
+    const s = ((b[0] - a[0]) * b[3] - (b[1] - a[1]) * b[2]) / det;
+    return [a[0] + a[2] * s, a[1] + a[3] * s];
+  });
+}
+{
+  const sh = new THREE.Shape(RIGHT.map(([px, py]) => new THREE.Vector2(sx(px), py - ZF)));
+  sh.holes.push(new THREE.Path(insetPoly(RIGHT, 0.18).map(([px, py]) => new THREE.Vector2(sx(px), py - ZF))));
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.3, bevelEnabled: false });
+  geo.rotateX(-Math.PI / 2); geo.translate(0, FL.r, 0);
+  add(new THREE.Mesh(geo, mat.white));
+  const r = insetPoly(RIGHT, 0.09);
+  const pts = [r[3], r[0], r[1], r[2]].map(([px, py]) => [sx(px), FL.r + 0.3, sz(py)]);   // 勾配屋根に接する辺を除く
+  rail(pts, 16.90 - FL.r - 0.3, mat.railS);
+}
+
+// 勾配屋根（10°、一文字葺き）と太陽光パネル35枚
+{
+  const slope = Math.tan(10 * Math.PI / 180), y0 = FL.r - 0.05;
+  const topY = px => y0 + (px + 0.25) * slope;
+  const poly = [[-0.25, 3.85], [5.8, 3.85], [5.8, backY(5.8) + 0.25], [-0.25, 11.307 + 0.2]];
+  const P = poly.map(([px, py]) => [sx(px), sz(py)]);
+  const pos = [];
+  const v = (i, top) => [P[i][0], top ? topY(poly[i][0]) : y0, P[i][1]];
+  pos.push(...v(0, 1), ...v(1, 1), ...v(2, 1), ...v(0, 1), ...v(2, 1), ...v(3, 1));
+  for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; pos.push(...v(i, 0), ...v(j, 0), ...v(j, 1), ...v(i, 0), ...v(j, 1), ...v(i, 1)); }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  add(new THREE.Mesh(geo, mat.metal));
+  const pw = 5.0, pd = 6.4, cx = 2.85, cy = 7.6;
+  const pg = new THREE.PlaneGeometry(pw / Math.cos(10 * Math.PI / 180), pd);
+  const uv = pg.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 5.08, uv.getY(i) * pd);
+  pg.rotateX(-Math.PI / 2);
+  const sp = new THREE.Mesh(pg, mat.solar);
+  sp.rotation.z = Math.atan(slope);
+  sp.position.set(sx(cx), topY(cx) + 0.12, sz(cy));
+  add(sp);
+}
+
+// 塔屋（EV・階段。平面は約6.0×3.3 m を斜めの外壁に揃えて回した模式）と太陽光パネル18枚
+{
+  const g = new THREE.Group();
+  const tw = 6.0, td = 3.3, top = 19.0;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(tw, top - FL.r, td), mat.white);
+  body.position.y = (top + FL.r) / 2 - FL.r;
+  body.castShadow = body.receiveShadow = true;
+  body.add(new THREE.LineSegments(new THREE.EdgesGeometry(body.geometry), edgeMat));
+  g.add(body);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.85, 2.0, 0.06), mat.alu);
+  door.position.set(-2.1, 1.0, td / 2 + 0.02);
+  const w1 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.1, 0.06), mat.glass);
+  w1.position.set(1.6, 1.6, td / 2 + 0.02);
+  g.add(door, w1);
+  const pg = new THREE.PlaneGeometry(tw + 0.2, td + 0.2);
+  const uv = pg.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 6.0, uv.getY(i) * 2.745);
+  pg.rotateX(-Math.PI / 2);
+  const sp = new THREE.Mesh(pg, mat.solar);
+  const rise = B.ph - top - 0.15;
+  sp.rotation.z = Math.atan(rise / tw);
+  sp.position.y = top - FL.r + 0.15 + rise / 2;
+  sp.castShadow = true;
+  g.add(sp);
+  g.position.set(sx(9.6), FL.r, sz(12.0));
+  g.rotation.y = Math.atan(TAN);
+  building.add(g);
+}
+
+// ---- 道路側（E）----
+// 下階：タイルの帯、シャッター、アルミサッシ
+panel('E', 0, 6.1, 0, FL.f3, mat.tile, 1.3);
+panel('E', 8.2, 10.3, 2.4, FL.f4, mat.tile, 1.3);
+panel('E', 12.8, 14.9, 2.4, FL.f4, mat.tile, 1.3);
+panel('E', 3.1, 5.6, 0, 2.5, mat.shutter, 1.3, 0.05);
+panel('E', 6.1, 8.6, 0, 2.5, mat.shutter, 1.3, 0.05);
+panel('E', 8.3, 10.1, 3.35, 5.4, mat.shutter, 1.3, 0.05);
+win('E', 12.95, 14.8, 3.45, 5.45, { d: 1.3, kind: 'alu', cols: 2, rows: 2 });
+win('E', 8.3, 10.1, 6.4, 8.55, { d: 1.3, kind: 'alu', cols: 2, rows: 2 });
+win('E', 12.95, 14.8, 6.4, 8.55, { d: 1.3, kind: 'alu', cols: 2, rows: 2 });
+win('E', 1.0, 5.6, 6.5, 8.6, { d: 4.1, kind: 'alu', cols: 4, rows: 2 });
+// 上階：木製サッシ
+for (const [u0, u1] of [[6.45, 7.3], [8.6, 9.5], [10.7, 11.5]]) win('E', u0, u1, 13.0, 14.45, { d: 1.3 });
+win('E', 12.95, 14.8, 12.7, 14.45, { d: 1.3, cols: 2 });
+win('E', 6.45, 7.3, 10.1, 11.55, { d: 1.3 });
+win('E', 8.3, 10.1, 9.8, 11.55, { d: 1.3, cols: 2 });
+win('E', 12.95, 14.8, 9.8, 11.55, { d: 1.3, cols: 2 });
+for (const fl of [FL.f4, FL.f5])
+  for (const [u0, u1] of [[0.9, 2.2], [2.4, 3.7], [4.0, 5.5]]) win('E', u0, u1, fl + 0.05, fl + 1.9, { d: 4.1, cols: 2 });
+
+// バルコニー：平面の角を丸めた床＋腰壁（コンクリート）＋手すり
+function outline(x0, x1, yF, yB, rL, rR, seg = 10) {
+  const pts = [[x0, yB]];
+  for (let i = 0; i <= seg; i++) { const a = Math.PI + (i / seg) * Math.PI / 2; pts.push([x0 + rL + rL * Math.cos(a), yF + rL + rL * Math.sin(a)]); }
+  for (let i = 0; i <= seg; i++) { const a = 1.5 * Math.PI + (i / seg) * Math.PI / 2; pts.push([x1 - rR + rR * Math.cos(a), yF + rR + rR * Math.sin(a)]); }
+  pts.push([x1, yB]);
+  return pts;
+}
+function balcony(px0, px1, d, depth, fl, rL, rR) {
+  const yF = d - depth, t = 0.14;
+  const o = outline(px0, px1, yF, d + 0.05, rL, rR);
+  const toV = pts => pts.map(([px, py]) => new THREE.Vector2(sx(px), py - ZF));
+  const slab = new THREE.Shape(toV(o));
+  const g1 = new THREE.ExtrudeGeometry(slab, { depth: 0.28, bevelEnabled: false });
+  g1.rotateX(-Math.PI / 2); g1.translate(0, fl - 0.28, 0);
+  add(new THREE.Mesh(g1, mat.concPlain));
+  const wall = new THREE.Shape(toV(o));
+  wall.holes.push(new THREE.Path(toV(outline(px0 + t, px1 - t, yF + t, d + 0.03, Math.max(rL - t, 0.02), Math.max(rR - t, 0.02))).reverse()));
+  const g2 = new THREE.ExtrudeGeometry(wall, { depth: 0.6, bevelEnabled: false });
+  g2.rotateX(-Math.PI / 2); g2.translate(0, fl, 0);
+  add(new THREE.Mesh(g2, mat.concPlain));
+  const r = outline(px0 + 0.07, px1 - 0.07, yF + 0.07, d, Math.max(rL - 0.07, 0.02), Math.max(rR - 0.07, 0.02));
+  rail(r.map(([px, py]) => [sx(px), fl + 0.6, sz(py)]), 0.5, mat.railW);
+}
+balcony(7.6, 10.4, 1.3, 1.3, FL.f4, 0.65, 0.65);
+balcony(12.3, 15.2, 1.3, 1.3, FL.f4, 0.65, 0.65);
+balcony(12.3, 15.2, 1.3, 1.3, FL.f5, 0.65, 0.65);
+balcony(0, 5.8, 4.1, 1.2, FL.f4, 1.0, 0.02);
+balcony(0, 5.8, 4.1, 1.2, FL.f5, 1.0, 0.02);
+// 3F のテラス（2F の屋上）
+boxP(0, 5.8, 1.3, 4.1, FL.f3, FL.f3 + 0.15, mat.step);
+rail([[sx(0.02), FL.f3 + 0.15, sz(4.1)], [sx(0.02), FL.f3 + 0.15, sz(1.32)], [sx(5.8), FL.f3 + 0.15, sz(1.32)]], 1.0, mat.railW);
+
+// 屋外階段2：道路側の面に沿って X5 の地面から X1 の 3F テラスへ上る
+function flight(pxA, hA, pxB, hB, py0, py1, sideRail) {
+  const n = Math.max(2, Math.round(Math.abs(hB - hA) / 0.19));
+  const rise = (hB - hA) / n, run = (pxB - pxA) / n;
+  for (let i = 0; i < n; i++) {
+    const xa = pxA + i * run, xb = xa + run, top = hA + (i + 1) * rise;
+    boxP(Math.min(xa, xb), Math.max(xa, xb), py0, py1, Math.max(0, top - 0.45), top, mat.step);
+  }
+  if (sideRail != null) {
+    const z = sz(sideRail);
+    strip([[sx(pxA), hA - 0.45, z], [sx(pxB), hB - 0.45, z]], [[sx(pxA), hA + 0.15, z], [sx(pxB), hB + 0.15, z]], mat.concPlain).castShadow = true;
+    rail([[sx(pxA), hA + 0.15, z], [sx(pxB), hB + 0.15, z]], 0.95);
   }
 }
-// 塔屋（平面形は模式）
-const ph = boxWithEdges(4.5, B.ph - B.h, 4.0, concrete);
-ph.position.set(3.0, B.h + (B.ph - B.h) / 2, -3.0);
-building.add(ph);
+function landing(px0, px1, py0, py1, h, railPts) {
+  boxP(px0, px1, py0, py1, h - 0.35, h, mat.concPlain);
+  if (railPts) rail(railPts.map(([px, py]) => [sx(px), h, sz(py)]), 1.1);
+}
+{
+  const p0 = 0.02, p1 = 1.3;
+  flight(17.2, 0, 14.0, 2.1, p0, p1, p0);
+  landing(12.5, 14.0, p0, p1, 2.1, [[14.0, p0], [12.5, p0]]);
+  flight(12.5, 2.1, 10.7, FL.f2 + 0.25, p0, p1, p0);
+  landing(7.85, 10.7, p0, p1, FL.f2 + 0.25, [[10.7, p0], [7.85, p0]]);
+  flight(7.85, FL.f2 + 0.25, 5.5, 4.92, p0, p1, p0);
+  landing(3.9, 5.5, p0, p1, 4.92, [[5.5, p0], [3.9, p0]]);
+  flight(3.9, 4.92, 1.6, FL.f3 + 0.15, p0, p1, p0);
+  landing(0, 1.6, p0, p1, FL.f3 + 0.15, [[1.6, p0], [0.02, p0], [0.02, p1]]);
+}
+
+// ---- 北側（N、右の面）----
+for (const [u0, u1, h0] of [[2.2, 3.1, 0], [9.2, 10.2, 0], [11.1, 12.1, 0], [4.2, 8.0, 2.3]]) panel('N', u0, u1, h0, FL.f4, mat.tile);
+panel('N', 4.2, 9.15, 0, 2.3, mat.shutter, 0, 0.05);
+win('N', 10.25, 11.05, 0, 2.4, { kind: 'alu', rows: 1 });
+win('N', 4.3, 7.9, 6.55, 8.7, { kind: 'alu', cols: 3, rows: 2 });
+win('N', 4.3, 7.9, 3.4, 5.45, { kind: 'alu', cols: 3, rows: 2 });
+for (const [u0, u1] of [[2.3, 3.0], [9.35, 10.1], [11.2, 12.0]]) {
+  win('N', u0, u1, 7.95, 8.7, { kind: 'alu' });
+  win('N', u0, u1, 4.7, 5.4, { kind: 'alu' });
+}
+boxP(16.24, 17.7, 10.1, 15.4, 3.0, 3.2, mat.concPlain);                      // 庇
+for (const [u0, u1] of [[2.3, 3.15], [4.3, 5.1], [9.3, 10.2], [11.1, 12.1]]) {
+  win('N', u0, u1, 13.05, 14.6);
+  win('N', u0, u1, 10.15, 11.7);
+}
+win('N', 6.3, 8.0, 13.05, 14.6, { cols: 2 });
+win('N', 6.3, 8.0, 10.15, 11.7, { cols: 2 });
+win('N', 13.85, 14.7, 13.05, 14.6);
+// 屋外階段1（奥の右、1F〜4F の折返し階段。上は4・5Fが張り出す）
+{
+  const F = [0, FL.f2, FL.f3, FL.f4];
+  for (let k = 0; k < 3; k++) {
+    const h0 = F[k], h1 = F[k + 1], mid = (h0 + h1) / 2;
+    flight(15.9, h0, 12.9, mid, 12.95, 14.1, null);
+    landing(12.2, 12.9, 12.95, 15.3, mid, [[12.2, 12.95], [12.2, 15.3], [12.9, 15.3]]);
+    flight(12.9, mid, 15.9, h1, 14.15, 15.3, 15.3);
+    if (k < 2) landing(15.9, 16.24, 12.95, 15.3, h1, [[15.9, 15.3], [16.24, 15.3], [16.24, 12.95]]);
+  }
+}
+
+// ---- 南側（S、左の面）----
+panel('S', 5.2, 7.7, 0, FL.f4, mat.tile);
+panel('S', 1.3, 4.1, 0, FL.f3, mat.tile);
+for (const [h0, h1] of [[7.45, 8.6], [4.2, 5.3], [0.9, 2.05]]) win('S', 5.35, 7.55, h0, h1, { kind: 'alu', cols: 3 });
+for (const [h0, h1] of [[4.2, 5.3], [0.9, 2.05]]) win('S', 2.4, 3.8, h0, h1, { kind: 'alu', cols: 2 });
+for (const [h0, h1] of [[10.15, 11.6], [13.05, 14.5]])
+  for (const [u0, u1] of [[5.2, 6.8], [9.2, 10.7]]) win('S', u0, u1, h0, h1, { cols: 2 });
+
 scene.add(building);
 
 // 人（1.7 m）
