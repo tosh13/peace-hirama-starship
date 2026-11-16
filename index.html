@@ -215,6 +215,7 @@ function setVisible(obj, v) { obj.traverse(o => { o.visible = v; }); }
 // 形の出所：確認申請図書（2020-11-04 軽微変更2）の配置図・各階平面図・立面図4面と竣工写真。
 // 平面の座標は図面の通り芯に合わせ、px＝X1 からの距離（道路側の面に沿って右へ）、py＝Y1 からの距離（奥へ）。
 // 高さは設計GL からの値（1FL は GL−0.15 だが 0 に丸めた）。窓・手すり・階段の細部と仕上げの色は近似。
+// 図面の読み・資料の所在・近似した点は docs/peace-hirama-building-model.md。
 const building = new THREE.Group();
 const BW = 16.24, BD = 15.51;                                          // 図面の X1〜X5、Y1〜Y7
 const X0 = -BW / 2, ZF = BD / 2;
