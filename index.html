@@ -93,12 +93,12 @@
     <span class="hint" id="hint"></span>
   </div>
   <ul class="spec">
-    <li><span class="swatch" style="background:#cdbfae"></span><span>ピース平間：幅 16.24（道路側）× 奥行 15.51 × 最高高さ 16.90、塔屋 約19.8</span></li>
+    <li><span class="swatch" style="background:#cdbfae"></span><span>ピース平間：幅 15.51（北面）× 奥行 16.24 × 最高高さ 16.90、塔屋 約19.8</span></li>
     <li><span class="swatch" style="background:#b8bec6"></span><span>Starship：直径 9 × 全高 約121（Super Heavy 約71＋Ship 約50）</span></li>
   </ul>
   <div class="ratios">
     <div class="ratio"><div class="v">約7.2倍</div><div class="k">高さ</div><div class="f">121 ÷ 16.90</div></div>
-    <div class="ratio"><div class="v">約0.55倍</div><div class="k">直径 ÷ 幅</div><div class="f">9 ÷ 16.24</div></div>
+    <div class="ratio"><div class="v">約0.58倍</div><div class="k">直径 ÷ 幅</div><div class="f">9 ÷ 15.51</div></div>
   </div>
   <p class="note">
     ピース平間：確認申請図書の配置図・平面図・立面図（2020-11-04 軽微変更2）と竣工写真から外観を大まかに起こした。窓・手すり・階段の細部、塔屋の平面形、仕上げの色は近似。塔屋の高さは基準面の違いで1階床から約19.7とする資料もある。<br>
@@ -122,10 +122,10 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 
 // ---- 寸法（m）。正本は README と図面。ここは描画用の値 ----
-const B = { w: 16.24, d: 15.51, h: 16.90, eave: 15.40, ph: 19.8, floors: 5 };
+const B = { w: 15.51, d: 16.24, h: 16.90, ph: 19.8 };   // 正面は北面（幅 15.51＝Y1〜Y7、奥行 16.24＝X1〜X5）
 const S = { r: 4.5, booster: 71, ship: 50, total: 121, nose: 18 };
 const NARROW0 = innerWidth <= 640;               // 読み込み時の画面幅（スマホではラベルが相対的に大きいので間隔を広げる）
-const GAP = NARROW0 ? 20 : 12;                    // 建物の右端と Starship の左端の間（寸法ではなく見やすさのための間隔）
+const GAP = NARROW0 ? 24 : 24;                    // 建物の右端と Starship の左端の間（寸法ではなく見やすさのための間隔）
 const SX = B.w / 2 + GAP + S.r;                   // Starship の中心 x
 const LADDER_X = B.w / 2 + GAP - 2.5;             // 倍率のはしご
 const params = new URLSearchParams(location.search);
@@ -216,7 +216,8 @@ function setVisible(obj, v) { obj.traverse(o => { o.visible = v; }); }
 // 平面の座標は図面の通り芯に合わせ、px＝X1 からの距離（道路側の面に沿って右へ）、py＝Y1 からの距離（奥へ）。
 // 高さは設計GL からの値（1FL は GL−0.15 だが 0 に丸めた）。窓・手すり・階段の細部と仕上げの色は近似。
 const building = new THREE.Group();
-const X0 = -B.w / 2, ZF = B.d / 2;
+const BW = 16.24, BD = 15.51;                                          // 図面の X1〜X5、Y1〜Y7
+const X0 = -BW / 2, ZF = BD / 2;
 const FL = { f2: 3.10, f3: 6.30, f4: 9.70, f5: 12.60, r: 15.50 };   // 2FL〜RFL（GL 基準）
 const TAN = Math.tan(Math.atan2(15.507 - 11.307, 16.24));             // 隣地側の斜めの外壁（X1 で Y6、X5 で Y7）
 const backY = px => 11.307 + px * TAN;
@@ -340,7 +341,7 @@ const rail = (pts, h, material = mat.railW) => strip(pts, pts.map(([x, y, z]) =>
 // 外壁の面に貼る：face は E（道路側、u＝px、面の位置は py＝d）、N（右、u＝py）、S（左、u＝py）
 function place(o, face, u, h, d = 0) {
   if (face === 'E') o.position.set(sx(u), h, sz(d));
-  else if (face === 'N') { o.position.set(X0 + B.w, h, sz(u)); o.rotation.y = Math.PI / 2; }
+  else if (face === 'N') { o.position.set(X0 + BW, h, sz(u)); o.rotation.y = Math.PI / 2; }
   else { o.position.set(X0, h, sz(u)); o.rotation.y = -Math.PI / 2; }
   return o;
 }
@@ -590,6 +591,7 @@ for (const [h0, h1] of [[4.2, 5.3], [0.9, 2.05]]) win('S', 2.4, 3.8, h0, h1, { k
 for (const [h0, h1] of [[10.15, 11.6], [13.05, 14.5]])
   for (const [u0, u1] of [[5.2, 6.8], [9.2, 10.7]]) win('S', u0, u1, h0, h1, { cols: 2 });
 
+building.rotation.y = -Math.PI / 2;                                    // 北面（N）を正面（+z）に向ける
 scene.add(building);
 
 // 人（1.7 m）
@@ -663,7 +665,7 @@ const frontOnly = new THREE.Group();  // 正面のみ（地面より下の幅の
 const only3d = new THREE.Group();     // 3D のみ（地面上の幅・奥行）
 scene.add(common, frontOnly, only3d);
 
-const zf = B.d / 2;                   // 建物の道路側の面
+const zf = B.d / 2;                   // 建物の正面（北面）
 const xL = -B.w / 2 - 3;
 // 建物の高さ：0→16.90、16.90→塔屋の上端 を同じ線上に
 common.add(dim(V(xL, 0, zf), V(xL, B.h, zf), V(1, 0, 0), '最高高さ 16.90 m', { side: 'left' }));
@@ -691,8 +693,8 @@ common.add(label('人 1.7 m', V(person.position.x, 2.0, person.position.z), 'abo
 
 // 正面のみ：幅（地面の下に描く）
 const yW = -4;
-frontOnly.add(dim(V(-B.w / 2, yW, 50), V(B.w / 2, yW, 50), V(0, 1, 0), NARROW0 ? '幅 16.24 m' : '幅 16.24 m（道路側）', { side: 'below', at: V(0, yW - 1.1, 50), overlay: true }));
-frontOnly.add(dim(V(SX - S.r, yW, 50), V(SX + S.r, yW, 50), V(0, 1, 0), NARROW0 ? '直径 9 m' : '直径 9 m（幅の約0.55倍）', { side: 'below', at: V(SX, yW - 1.1, 50), overlay: true }));
+frontOnly.add(dim(V(-B.w / 2, yW, 50), V(B.w / 2, yW, 50), V(0, 1, 0), NARROW0 ? '幅 15.51 m' : '幅 15.51 m（北面）', { side: 'below', at: V(0, yW - 1.1, 50), overlay: true }));
+frontOnly.add(dim(V(SX - S.r, yW, 50), V(SX + S.r, yW, 50), V(0, 1, 0), NARROW0 ? '直径 9 m' : '直径 9 m（幅の約0.58倍）', { side: 'below', at: V(SX, yW - 1.1, 50), overlay: true }));
 // 正面のみ：10 m の目盛り（背面）
 const backGrid = new THREE.GridHelper(260, 26, 0x9fb3c8, 0x9fb3c8);
 backGrid.rotation.x = Math.PI / 2;
@@ -703,8 +705,8 @@ for (let y = 20; y <= 120; y += 20) frontOnly.add(label(`${y} m`, V(xS2 + 14, y,
 
 // 3D のみ：地面の上に幅・奥行・直径
 const gy = 0.06;
-only3d.add(dim(V(-B.w / 2, gy, zf + 3), V(B.w / 2, gy, zf + 3), V(0, 0, 1), NARROW0 ? '幅 16.24 m' : '幅 16.24 m（道路側）', { side: 'below', at: V(0, gy, zf + 4.2) }));
-only3d.add(dim(V(xL, gy, -B.d / 2), V(xL, gy, B.d / 2), V(1, 0, 0), '奥行 15.51 m', { side: 'left', at: V(xL - 0.8, gy, 0) }));
+only3d.add(dim(V(-B.w / 2, gy, zf + 3), V(B.w / 2, gy, zf + 3), V(0, 0, 1), NARROW0 ? '幅 15.51 m' : '幅 15.51 m（北面）', { side: 'below', at: V(0, gy, zf + 4.2) }));
+only3d.add(dim(V(xL, gy, -B.d / 2), V(xL, gy, B.d / 2), V(1, 0, 0), '奥行 16.24 m', { side: 'left', at: V(xL - 0.8, gy, 0) }));
 only3d.add(dim(V(SX - S.r, gy, S.r + 3), V(SX + S.r, gy, S.r + 3), V(0, 0, 1), '直径 9 m', { side: 'below', at: V(SX, gy, S.r + 4.2) }));
 
 // ---- cameras ----
@@ -712,15 +714,15 @@ const NARROW = () => innerWidth <= 640;
 // 狭い画面では説明欄が上を覆うので、その下の領域だけを描画の枠として扱う
 const topInset = () => NARROW() ? document.getElementById('panel').getBoundingClientRect().bottom + 8 : 0;
 const persp = new THREE.PerspectiveCamera(34, innerWidth / innerHeight, 1, 3000);
-persp.position.set(-150, 85, 285);
+persp.position.set(-140, 85, 300);
 const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 2000);
 ortho.position.set(SX / 2, 60, 600);
 
 const ctlP = new OrbitControls(persp, labelRenderer.domElement);
-ctlP.target.set(16, 52, 0);
+ctlP.target.set(22, 52, 0);
 if (NARROW()) {                       // 正面寄り・遠めにして、はしごが建物に重ならないようにする
   persp.position.set(-60, 50, 330);
-  ctlP.target.set(18, 46, 0);
+  ctlP.target.set(21, 46, 0);
 }
 ctlP.enableDamping = true;
 ctlP.maxPolarAngle = Math.PI / 2 - 0.02;
